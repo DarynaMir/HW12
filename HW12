@@ -3,45 +3,45 @@ from collections import UserDict
 from datetime import datetime
 
 class Field:
-    def __init__(self, value):
+    def __init__(self, val):
         self.__value = None
-        self.value = value
+        self.value = val
     
     @property
     def value(self):
         return self.__value
 
     @value.setter
-    def value(self, value):
-        self.__value = value
+    def value(self, val):
+        self.__value = val
 
 class Name(Field):
     pass
 
 class Birthday(Field):
     @Field.value.setter
-    def value(self, value: str):
+    def value(self, val: str):
         try:
-            self._value = datetime.strptime(value, '%Y-%m-%d').date()
+            self._value = datetime.strptime(val, '%Y-%m-%d').date()
         except ValueError:
-            raise ValueError(f"Invalid date format: {value}. Please use the format 'YYYY-MM-DD'.")
+            raise ValueError(f"Invalid date format: {val}. Please use the format 'YYYY-MM-DD'.")
 
 class Phone(Field):
-    def __init__(self, value):
-        if not isinstance(value, str) or not value.isdigit() or len(value) != 10:
+    def __init__(self, val):
+        if not isinstance(val, str) or not val.isdigit() or len(val) != 10:
             raise ValueError("Invalid phone number")
-        super().__init__(value)
+        super().__init__(val)
 
     @Field.value.setter
-    def value(self, value):
-        if not isinstance(value, str) or not value.isdigit() or len(value) != 10:
+    def value(self, val):
+        if not isinstance(val, str) or not val.isdigit() or len(val) != 10:
             raise ValueError("Invalid phone number")
-        super(Phone, Phone).value.__set__(self, value)
+        super(Phone, Phone).value.__set__(self, val)
 
 class Record:
-    def __init__(self, name, birthday=None):
+    def __init__(self, name, *phones, birthday=None):
         self.name = Name(name)
-        self.phones = []
+        self.phones = [Phone(phone) for phone in phones]
         self.birthday = Birthday(birthday) if birthday else None
 
     def add_phone(self, phone):
@@ -76,7 +76,13 @@ class Record:
         return None
 
     def __str__(self):
-        return f"Contact name: {self.name}, phones: {'; '.join(str(phone) for phone in self.phones)}, birthday: {self.birthday.value if self.birthday else None}"
+        birthday_str = (
+            self.birthday.value.strftime('%Y-%m-%d')
+            if self.birthday and self.birthday.value is not None
+            else 'N/A'
+        )
+        return f"Contact name: {self.name.value}, phones: {'; '.join(str(phone.value) for phone in self.phones)}, birthday: {birthday_str}"
+
 
 class AddressBook(UserDict):
     def __init__(self, filename):
@@ -123,3 +129,32 @@ class AddressBook(UserDict):
             if query in name or any(query in phone.value for phone in record.phones):
                 results[name] = record
         return results
+
+# Приклад використання з початковим списком контактів:
+contacts = [
+    Record("John Doe", "0980597077"),
+    Record("Jane Smith", "1234567890", birthday="1985-05-12"),
+    Record("Bob Johnson", birthday="1995-08-22"),
+]
+
+address_book = AddressBook("address_book.dat")
+address_book.load_from_disk()
+
+# Додавання контактів до адресної книги
+for contact in contacts:
+    address_book.add_record(contact)
+
+# Введення запиту користувачем
+search_query = input("Введіть запит для пошуку: ")
+
+# Пошук та виведення результатів
+search_results = address_book.search(search_query)
+
+print("Search Results:")
+for name, record in search_results.items():
+    phones = ', '.join(str(phone.value) for phone in record.phones)
+    if record.birthday and record.birthday.value is not None:
+        birthday = record.birthday.value.strftime('%Y-%m-%d')
+    else:
+        birthday = 'N/A'
+    print(f"{name}: Phones: {phones}, Birthday: {birthday}")
